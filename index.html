@@ -91,7 +91,7 @@
     <p class="small">Registro de entrada/salida</p>
 
     <label for="apiUrl">URL API Apps Script</label>
-    <input type="text" id="apiUrl" placeholder="Pega aquí la URL de tu Apps Script">
+    <input disabled type="text" id="apiUrl" placeholder="Pega aquí la URL de tu Apps Script">
 
     <label for="supervisorCorreo">Correo del supervisor</label>
     <input type="email" id="supervisorCorreo" placeholder="supervisor@empresa.com">
@@ -173,7 +173,7 @@
     async function buscarEmpleado() {
       limpiarMensaje();
 
-      const apiUrl = getApiUrl();
+      const apiUrl = https://script.google.com/macros/s/AKfycby6M3Ed6uByUgqdKYsgAKHNbrxre5Hd27-vyYX1T5L4K7eJG_0SGo4csOpetktT7tH7uw/exec
       const codigoQR = document.getElementById('codigoQR').value.trim();
 
       if (!apiUrl) {
