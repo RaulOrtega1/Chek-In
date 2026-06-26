@@ -53,6 +53,7 @@
     }
     .ok { background: #e8f5e9; color: #1b5e20; }
     .error { background: #ffebee; color: #b71c1c; }
+    .info { background: #e3f2fd; color: #0d47a1; }
     .card {
       margin-top: 16px;
       padding: 14px;
@@ -83,6 +84,15 @@
       color: #666;
       font-size: 13px;
     }
+    #ultimoMarcajeBox {
+      display: none;
+      margin-top: 12px;
+      padding: 10px;
+      border-radius: 8px;
+      background: #fff8e1;
+      color: #7c5b00;
+      font-size: 14px;
+    }
   </style>
 </head>
 <body>
@@ -90,11 +100,10 @@
     <h1>Control de Asistencia QR</h1>
     <p class="small">Registro de entrada/salida</p>
 
-    <label for="apiUrl">URL API Apps Script</label>
-    <input disabled type="text" id="apiUrl" placeholder="Pega aquí la URL de tu Apps Script">
-
-    <label for="supervisorCorreo">Correo del supervisor</label>
-    <input type="email" id="supervisorCorreo" placeholder="supervisor@empresa.com">
+    <label for="supervisorSelect">Supervisor</label>
+    <select id="supervisorSelect">
+      <option value="">Cargando supervisores...</option>
+    </select>
 
     <label for="tipoMarcaje">Tipo de marcaje</label>
     <select id="tipoMarcaje">
@@ -119,6 +128,7 @@
       <div><strong>Empleado:</strong> <span id="nombreEmpleado"></span></div>
       <div><strong>Categoría:</strong> <span id="categoriaEmpleado"></span></div>
       <div><strong>Área:</strong> <span id="areaEmpleado"></span></div>
+      <div id="ultimoMarcajeBox"></div>
     </div>
 
     <label for="observaciones">Observaciones</label>
@@ -138,6 +148,9 @@
   </div>
 
   <script>
+    const API_URL = "PEGA_AQUI_TU_URL_DE_APPS_SCRIPT";
+    const STORAGE_SUPERVISOR = "supervisorSeleccionado";
+
     let empleadoActual = null;
     let latitud = '';
     let longitud = '';
@@ -158,28 +171,85 @@
       msg.innerText = '';
     }
 
-    function getApiUrl() {
-      return document.getElementById('apiUrl').value.trim();
-    }
-
     function resetEmpleadoVisual() {
       empleadoActual = null;
       document.getElementById('empleadoCard').style.display = 'none';
       document.getElementById('nombreEmpleado').innerText = '';
       document.getElementById('categoriaEmpleado').innerText = '';
       document.getElementById('areaEmpleado').innerText = '';
+      document.getElementById('ultimoMarcajeBox').style.display = 'none';
+      document.getElementById('ultimoMarcajeBox').innerText = '';
+    }
+
+    function guardarSupervisorLocal() {
+      const valor = document.getElementById('supervisorSelect').value;
+      if (valor) {
+        localStorage.setItem(STORAGE_SUPERVISOR, valor);
+      }
+    }
+
+    function restaurarSupervisorLocal() {
+      return localStorage.getItem(STORAGE_SUPERVISOR) || '';
+    }
+
+    async function cargarSupervisores() {
+      try {
+        const url = `${API_URL}?action=obtenerSupervisores`;
+        const res = await fetch(url);
+        const data = await res.json();
+
+        const select = document.getElementById('supervisorSelect');
+        select.innerHTML = '<option value="">Seleccione supervisor...</option>';
+
+        if (data.ok && data.supervisores.length > 0) {
+          data.supervisores.forEach(sup => {
+            const option = document.createElement('option');
+            option.value = sup.correoLogin;
+            option.textContent = `${sup.nombreSupervisor} (${sup.rol})`;
+            select.appendChild(option);
+          });
+
+          const supervisorGuardado = restaurarSupervisorLocal();
+          if (supervisorGuardado) {
+            select.value = supervisorGuardado;
+          }
+
+        } else {
+          select.innerHTML = '<option value="">No hay supervisores disponibles</option>';
+        }
+      } catch (error) {
+        mostrarMensaje('Error al cargar supervisores: ' + error.message, 'error');
+      }
+    }
+
+    async function obtenerUltimoMarcaje(codigoQR) {
+      try {
+        const url = `${API_URL}?action=obtenerUltimoMarcaje&codigoQR=${encodeURIComponent(codigoQR)}`;
+        const res = await fetch(url);
+        const data = await res.json();
+
+        const box = document.getElementById('ultimoMarcajeBox');
+
+        if (data.ok) {
+          box.style.display = 'block';
+
+          if (data.existeUltimo) {
+            box.innerText =
+              `Último marcaje: ${data.ultimoMarcaje.tipoMarcaje} | ` +
+              `Fecha: ${data.ultimoMarcaje.fecha} | Hora: ${data.ultimoMarcaje.hora}`;
+          } else {
+            box.innerText = 'No existen marcajes previos. El primer marcaje válido debe ser Entrada.';
+          }
+        }
+      } catch (error) {
+        console.error('Error al obtener último marcaje:', error);
+      }
     }
 
     async function buscarEmpleado() {
       limpiarMensaje();
 
-      const apiUrl = https://script.google.com/macros/s/AKfycby6M3Ed6uByUgqdKYsgAKHNbrxre5Hd27-vyYX1T5L4K7eJG_0SGo4csOpetktT7tH7uw/exec
       const codigoQR = document.getElementById('codigoQR').value.trim();
-
-      if (!apiUrl) {
-        mostrarMensaje('Debes pegar la URL API de Apps Script.', 'error');
-        return;
-      }
 
       if (!codigoQR) {
         mostrarMensaje('Ingresa o escanea el código QR.', 'error');
@@ -187,7 +257,7 @@
       }
 
       try {
-        const url = `${apiUrl}?action=buscarEmpleado&codigoQR=${encodeURIComponent(codigoQR)}`;
+        const url = `${API_URL}?action=buscarEmpleado&codigoQR=${encodeURIComponent(codigoQR)}`;
         const res = await fetch(url);
         const data = await res.json();
 
@@ -198,6 +268,7 @@
           document.getElementById('categoriaEmpleado').innerText = data.empleado.categoria;
           document.getElementById('areaEmpleado').innerText = data.empleado.area;
           mostrarMensaje('Empleado encontrado.', 'ok');
+          await obtenerUltimoMarcaje(codigoQR);
         } else {
           resetEmpleadoVisual();
           mostrarMensaje(data.mensaje, 'error');
@@ -300,20 +371,14 @@
     async function guardarAsistencia() {
       limpiarMensaje();
 
-      const apiUrl = getApiUrl();
-      const supervisorCorreo = document.getElementById('supervisorCorreo').value.trim();
+      const supervisorCorreo = document.getElementById('supervisorSelect').value;
       const tipoMarcaje = document.getElementById('tipoMarcaje').value;
       const codigoQR = document.getElementById('codigoQR').value.trim();
       const observaciones = document.getElementById('observaciones').value.trim();
       const validacionVisual = document.getElementById('validacionVisual').checked;
 
-      if (!apiUrl) {
-        mostrarMensaje('Debes pegar la URL API de Apps Script.', 'error');
-        return;
-      }
-
       if (!supervisorCorreo) {
-        mostrarMensaje('Debes ingresar el correo del supervisor.', 'error');
+        mostrarMensaje('Debes seleccionar un supervisor.', 'error');
         return;
       }
 
@@ -349,7 +414,7 @@
           validacionVisual
         };
 
-        const res = await fetch(apiUrl, {
+        const res = await fetch(API_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'text/plain;charset=utf-8' },
           body: JSON.stringify(payload)
@@ -370,6 +435,7 @@
           document.getElementById('observaciones').value = '';
           document.getElementById('validacionVisual').checked = false;
           document.getElementById('ubicacionTexto').innerText = 'Ubicación no capturada.';
+          guardarSupervisorLocal();
           resetEmpleadoVisual();
           latitud = '';
           longitud = '';
@@ -380,6 +446,12 @@
         mostrarMensaje('Error al guardar asistencia: ' + error.message, 'error');
       }
     }
+
+    window.onload = function() {
+      cargarSupervisores();
+
+      document.getElementById('supervisorSelect').addEventListener('change', guardarSupervisorLocal);
+    };
   </script>
 </body>
 </html>
