@@ -171,7 +171,7 @@
         <div class="empleado-datos">
           <div><strong>Empleado:</strong> <span id="nombreEmpleado"></span></div>
           <div><strong>Categoría:</strong> <span id="categoriaEmpleado"></span></div>
-          <div><strong>Área:</strong> <span id="areaEmpleado"></span></div>
+          <div><strong>NSS:</strong> <span id="nss"></span></div>
           <div id="ultimoMarcajeBox"></div>
         </div>
       </div>
@@ -194,7 +194,7 @@
   </div>
 
   <script>
-    const API_URL = "https://script.google.com/macros/s/AKfycby6M3Ed6uByUgqdKYsgAKHNbrxre5Hd27-vyYX1T5L4K7eJG_0SGo4csOpetktT7tH7uw/exec";
+    const API_URL = "https://script.google.com/macros/s/AKfycbwcdoipe-TSBB0woGIyJjOk5ZssHquwmxZwS67PUOSMg0PnJgH2PU6yNXJn_sCAzxZYmg/exec";
     const STORAGE_SUPERVISOR = "supervisorSeleccionado";
 
     let empleadoActual = null;
@@ -222,7 +222,7 @@
       document.getElementById('empleadoCard').style.display = 'none';
       document.getElementById('nombreEmpleado').innerText = '';
       document.getElementById('categoriaEmpleado').innerText = '';
-      document.getElementById('areaEmpleado').innerText = '';
+      document.getElementById('nss').innerText = '';
       document.getElementById('ultimoMarcajeBox').style.display = 'none';
       document.getElementById('ultimoMarcajeBox').innerText = '';
 
@@ -339,7 +339,7 @@
           document.getElementById('empleadoCard').style.display = 'block';
           document.getElementById('nombreEmpleado').innerText = data.empleado.nombreCompleto;
           document.getElementById('categoriaEmpleado').innerText = data.empleado.categoria;
-          document.getElementById('areaEmpleado').innerText = data.empleado.area;
+          document.getElementById('nss').innerText = data.empleado.area;
           mostrarFotoEmpleado(data.empleado.foto || '');
           mostrarMensaje('Empleado encontrado.', 'ok');
           await obtenerUltimoMarcaje(codigoQR);
