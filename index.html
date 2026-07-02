@@ -339,7 +339,7 @@
           document.getElementById('empleadoCard').style.display = 'block';
           document.getElementById('nombreEmpleado').innerText = data.empleado.nombreCompleto;
           document.getElementById('categoriaEmpleado').innerText = data.empleado.categoria;
-          document.getElementById('nss').innerText = data.empleado.area;
+          document.getElementById('nss').innerText = data.empleado.nss;
           mostrarFotoEmpleado(data.empleado.foto || '');
           mostrarMensaje('Empleado encontrado.', 'ok');
           await obtenerUltimoMarcaje(codigoQR);
