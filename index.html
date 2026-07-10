@@ -1,3 +1,4 @@
+<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
@@ -52,7 +53,6 @@
     }
     .ok { background: #e8f5e9; color: #1b5e20; }
     .error { background: #ffebee; color: #b71c1c; }
-    .info { background: #e3f2fd; color: #0d47a1; }
     .card {
       margin-top: 16px;
       padding: 14px;
@@ -130,12 +130,15 @@
       flex: 1;
       min-width: 220px;
     }
+    .hidden {
+      display: none;
+    }
   </style>
 </head>
 <body>
   <div class="container">
     <h1>Control de Asistencia QR</h1>
-    <p class="small">Registro de entrada/salida</p>
+    <p class="small">Registro de entrada, salida e incidencias</p>
 
     <label for="supervisorSelect">Supervisor</label>
     <select id="supervisorSelect">
@@ -147,19 +150,31 @@
       <option value="">Seleccione...</option>
       <option value="Entrada">Entrada</option>
       <option value="Salida">Salida</option>
+      <option value="Vacaciones">Vacaciones</option>
+      <option value="Falta">Falta</option>
     </select>
 
-    <label for="codigoQR">Código QR</label>
-    <input type="text" id="codigoQR" placeholder="Ej. QR-EMP001-A7K2">
+    <div id="bloqueQR">
+      <label for="codigoQR">Código QR</label>
+      <input type="text" id="codigoQR" placeholder="Ej. QR-EMP001-A7K2">
 
-    <div class="inline-buttons">
-      <button type="button" onclick="iniciarEscaner()">Escanear QR</button>
-      <button type="button" class="danger" onclick="detenerEscaner()">Detener escáner</button>
+      <div class="inline-buttons">
+        <button type="button" onclick="iniciarEscaner()">Escanear QR</button>
+        <button type="button" class="danger" onclick="detenerEscaner()">Detener escáner</button>
+      </div>
+
+      <div id="reader"></div>
+
+      <button type="button" onclick="buscarEmpleadoPorQR()">Buscar empleado</button>
     </div>
 
-    <div id="reader"></div>
-
-    <button type="button" onclick="buscarEmpleado()">Buscar empleado</button>
+    <div id="bloqueEmpleadoManual" class="hidden">
+      <label for="empleadoSelect">Empleado</label>
+      <select id="empleadoSelect">
+        <option value="">Cargando empleados...</option>
+      </select>
+      <button type="button" onclick="buscarEmpleadoPorSeleccion()">Cargar empleado</button>
+    </div>
 
     <div id="empleadoCard" class="card">
       <div class="empleado-layout">
@@ -171,7 +186,7 @@
         <div class="empleado-datos">
           <div><strong>Empleado:</strong> <span id="nombreEmpleado"></span></div>
           <div><strong>Categoría:</strong> <span id="categoriaEmpleado"></span></div>
-          <div><strong>NSS:</strong> <span id="nss"></span></div>
+          <div><strong>NSS:</strong> <span id="nssEmpleado"></span></div>
           <div id="ultimoMarcajeBox"></div>
         </div>
       </div>
@@ -180,15 +195,17 @@
     <label for="observaciones">Observaciones</label>
     <textarea id="observaciones" rows="3" placeholder="Opcional"></textarea>
 
-    <div class="checkbox-row">
+    <div id="bloqueValidacionVisual" class="checkbox-row">
       <input type="checkbox" id="validacionVisual">
       <label for="validacionVisual" style="margin:0;">Confirmo validación visual del empleado</label>
     </div>
 
-    <button type="button" class="secondary" onclick="capturarUbicacion()">Capturar ubicación</button>
-    <p id="ubicacionTexto" class="small">Ubicación no capturada.</p>
+    <div id="bloqueUbicacion">
+      <button type="button" class="secondary" onclick="capturarUbicacion()">Capturar ubicación</button>
+      <p id="ubicacionTexto" class="small">Ubicación no capturada.</p>
+    </div>
 
-    <button type="button" onclick="guardarAsistencia()">Guardar asistencia</button>
+    <button type="button" onclick="guardarAsistencia()">Guardar marcaje</button>
 
     <div id="mensaje" class="msg"></div>
   </div>
@@ -222,13 +239,12 @@
       document.getElementById('empleadoCard').style.display = 'none';
       document.getElementById('nombreEmpleado').innerText = '';
       document.getElementById('categoriaEmpleado').innerText = '';
-      document.getElementById('nss').innerText = '';
+      document.getElementById('nssEmpleado').innerText = '';
       document.getElementById('ultimoMarcajeBox').style.display = 'none';
       document.getElementById('ultimoMarcajeBox').innerText = '';
 
       const foto = document.getElementById('fotoEmpleado');
       const sinFoto = document.getElementById('sinFotoEmpleado');
-
       foto.style.display = 'none';
       foto.src = '';
       sinFoto.style.display = 'flex';
@@ -236,9 +252,7 @@
 
     function guardarSupervisorLocal() {
       const valor = document.getElementById('supervisorSelect').value;
-      if (valor) {
-        localStorage.setItem(STORAGE_SUPERVISOR, valor);
-      }
+      if (valor) localStorage.setItem(STORAGE_SUPERVISOR, valor);
     }
 
     function restaurarSupervisorLocal() {
@@ -265,10 +279,28 @@
       }
     }
 
+    function actualizarModoFormulario() {
+      const tipo = document.getElementById('tipoMarcaje').value;
+
+      const usaQR = (tipo === 'Entrada' || tipo === 'Salida');
+      const esIncidencia = (tipo === 'Vacaciones' || tipo === 'Falta');
+
+      document.getElementById('bloqueQR').style.display = usaQR ? 'block' : 'none';
+      document.getElementById('bloqueEmpleadoManual').style.display = esIncidencia ? 'block' : 'none';
+      document.getElementById('bloqueValidacionVisual').style.display = usaQR ? 'flex' : 'none';
+      document.getElementById('bloqueUbicacion').style.display = usaQR ? 'block' : 'none';
+
+      resetEmpleadoVisual();
+      document.getElementById('codigoQR').value = '';
+      document.getElementById('validacionVisual').checked = false;
+      document.getElementById('ubicacionTexto').innerText = 'Ubicación no capturada.';
+      latitud = '';
+      longitud = '';
+    }
+
     async function cargarSupervisores() {
       try {
-        const url = `${API_URL}?action=obtenerSupervisores`;
-        const res = await fetch(url);
+        const res = await fetch(`${API_URL}?action=obtenerSupervisores`);
         const data = await res.json();
 
         const select = document.getElementById('supervisorSelect');
@@ -283,10 +315,7 @@
           });
 
           const supervisorGuardado = restaurarSupervisorLocal();
-          if (supervisorGuardado) {
-            select.value = supervisorGuardado;
-          }
-
+          if (supervisorGuardado) select.value = supervisorGuardado;
         } else {
           select.innerHTML = '<option value="">No hay supervisores disponibles</option>';
         }
@@ -295,54 +324,80 @@
       }
     }
 
-    async function obtenerUltimoMarcaje(codigoQR) {
+    async function cargarEmpleados() {
       try {
-        const url = `${API_URL}?action=obtenerUltimoMarcaje&codigoQR=${encodeURIComponent(codigoQR)}`;
-        const res = await fetch(url);
+        const res = await fetch(`${API_URL}?action=obtenerEmpleados`);
+        const data = await res.json();
+
+        const select = document.getElementById('empleadoSelect');
+        select.innerHTML = '<option value="">Seleccione empleado...</option>';
+
+        if (data.ok && data.empleados.length > 0) {
+          data.empleados.forEach(emp => {
+            const option = document.createElement('option');
+            option.value = emp.idEmpleado;
+            option.textContent = `${emp.nombreCompleto} - ${emp.categoria}`;
+            option.dataset.qr = emp.codigoQR || '';
+            option.dataset.nombre = emp.nombreCompleto || '';
+            option.dataset.categoria = emp.categoria || '';
+            option.dataset.nss = emp.nss || '';
+            option.dataset.foto = emp.foto || '';
+            select.appendChild(option);
+          });
+        } else {
+          select.innerHTML = '<option value="">No hay empleados disponibles</option>';
+        }
+      } catch (error) {
+        mostrarMensaje('Error al cargar empleados: ' + error.message, 'error');
+      }
+    }
+
+    async function obtenerUltimoMarcajePorQR(codigoQR) {
+      try {
+        const res = await fetch(`${API_URL}?action=obtenerUltimoMarcaje&codigoQR=${encodeURIComponent(codigoQR)}`);
         const data = await res.json();
 
         const box = document.getElementById('ultimoMarcajeBox');
-
         if (data.ok) {
           box.style.display = 'block';
 
           if (data.existeUltimo) {
-            box.innerText =
-              `Último marcaje: ${data.ultimoMarcaje.tipoMarcaje} | ` +
-              `Fecha: ${data.ultimoMarcaje.fecha} | Hora: ${data.ultimoMarcaje.hora}`;
+            box.innerText = `Último marcaje de hoy: ${data.ultimoMarcaje.tipoMarcaje} | Fecha: ${data.ultimoMarcaje.fecha} | Hora: ${data.ultimoMarcaje.hora}`;
           } else {
-            box.innerText = 'No existen marcajes previos. El primer marcaje válido debe ser Entrada.';
+            box.innerText = 'No existen marcajes previos hoy.';
           }
         }
       } catch (error) {
-        console.error('Error al obtener último marcaje:', error);
+        console.error(error);
       }
     }
 
-    async function buscarEmpleado() {
+    function pintarEmpleado(emp) {
+      empleadoActual = emp;
+      document.getElementById('empleadoCard').style.display = 'block';
+      document.getElementById('nombreEmpleado').innerText = emp.nombreCompleto || '';
+      document.getElementById('categoriaEmpleado').innerText = emp.categoria || '';
+      document.getElementById('nssEmpleado').innerText = emp.nss || '';
+      mostrarFotoEmpleado(emp.foto || '');
+    }
+
+    async function buscarEmpleadoPorQR() {
       limpiarMensaje();
 
       const codigoQR = document.getElementById('codigoQR').value.trim();
-
       if (!codigoQR) {
         mostrarMensaje('Ingresa o escanea el código QR.', 'error');
         return;
       }
 
       try {
-        const url = `${API_URL}?action=buscarEmpleado&codigoQR=${encodeURIComponent(codigoQR)}`;
-        const res = await fetch(url);
+        const res = await fetch(`${API_URL}?action=buscarEmpleado&codigoQR=${encodeURIComponent(codigoQR)}`);
         const data = await res.json();
 
         if (data.ok) {
-          empleadoActual = data.empleado;
-          document.getElementById('empleadoCard').style.display = 'block';
-          document.getElementById('nombreEmpleado').innerText = data.empleado.nombreCompleto;
-          document.getElementById('categoriaEmpleado').innerText = data.empleado.categoria;
-          document.getElementById('nss').innerText = data.empleado.nss;
-          mostrarFotoEmpleado(data.empleado.foto || '');
+          pintarEmpleado(data.empleado);
           mostrarMensaje('Empleado encontrado.', 'ok');
-          await obtenerUltimoMarcaje(codigoQR);
+          await obtenerUltimoMarcajePorQR(codigoQR);
         } else {
           resetEmpleadoVisual();
           mostrarMensaje(data.mensaje, 'error');
@@ -350,6 +405,35 @@
       } catch (error) {
         mostrarMensaje('Error al buscar empleado: ' + error.message, 'error');
       }
+    }
+
+    async function buscarEmpleadoPorSeleccion() {
+      limpiarMensaje();
+
+      const select = document.getElementById('empleadoSelect');
+      const selectedOption = select.options[select.selectedIndex];
+
+      if (!select.value) {
+        mostrarMensaje('Selecciona un empleado.', 'error');
+        return;
+      }
+
+      const emp = {
+        idEmpleado: select.value,
+        codigoQR: selectedOption.dataset.qr || '',
+        nombreCompleto: selectedOption.dataset.nombre || '',
+        categoria: selectedOption.dataset.categoria || '',
+        nss: selectedOption.dataset.nss || '',
+        foto: selectedOption.dataset.foto || ''
+      };
+
+      pintarEmpleado(emp);
+
+      if (emp.codigoQR) {
+        await obtenerUltimoMarcajePorQR(emp.codigoQR);
+      }
+
+      mostrarMensaje('Empleado cargado.', 'ok');
     }
 
     async function iniciarEscaner() {
@@ -391,14 +475,13 @@
           async (decodedText) => {
             document.getElementById('codigoQR').value = decodedText;
             await detenerEscaner();
-            buscarEmpleado();
+            buscarEmpleadoPorQR();
           },
           () => {}
         );
 
         scannerActivo = true;
         mostrarMensaje('Escáner iniciado. Apunta al QR.', 'ok');
-
       } catch (error) {
         mostrarMensaje('Error al iniciar escáner: ' + (error.message || error), 'error');
         document.getElementById(readerId).style.display = 'none';
@@ -431,8 +514,7 @@
         function(position) {
           latitud = position.coords.latitude;
           longitud = position.coords.longitude;
-          document.getElementById('ubicacionTexto').innerText =
-            'Ubicación capturada: ' + latitud + ', ' + longitud;
+          document.getElementById('ubicacionTexto').innerText = `Ubicación capturada: ${latitud}, ${longitud}`;
           mostrarMensaje('Ubicación capturada correctamente.', 'ok');
         },
         function() {
@@ -447,9 +529,7 @@
 
       const supervisorCorreo = document.getElementById('supervisorSelect').value;
       const tipoMarcaje = document.getElementById('tipoMarcaje').value;
-      const codigoQR = document.getElementById('codigoQR').value.trim();
       const observaciones = document.getElementById('observaciones').value.trim();
-      const validacionVisual = document.getElementById('validacionVisual').checked;
 
       if (!supervisorCorreo) {
         mostrarMensaje('Debes seleccionar un supervisor.', 'error');
@@ -461,33 +541,24 @@
         return;
       }
 
-      if (!codigoQR) {
-        mostrarMensaje('Ingresa o escanea el código QR.', 'error');
-        return;
-      }
-
       if (!empleadoActual) {
-        mostrarMensaje('Primero debes buscar y validar al empleado.', 'error');
+        mostrarMensaje('Debes cargar un empleado antes de guardar.', 'error');
         return;
       }
 
-      if (!validacionVisual) {
-        mostrarMensaje('Debes confirmar la validación visual.', 'error');
-        return;
-      }
+      const payload = {
+        action: 'guardarAsistencia',
+        supervisorCorreo,
+        tipoMarcaje,
+        codigoQR: empleadoActual.codigoQR || '',
+        idEmpleado: empleadoActual.idEmpleado || '',
+        latitud,
+        longitud,
+        observaciones,
+        validacionVisual: document.getElementById('validacionVisual').checked
+      };
 
       try {
-        const payload = {
-          action: 'guardarAsistencia',
-          supervisorCorreo,
-          tipoMarcaje,
-          codigoQR,
-          latitud,
-          longitud,
-          observaciones,
-          validacionVisual
-        };
-
         const res = await fetch(API_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'text/plain;charset=utf-8' },
@@ -498,32 +569,36 @@
 
         if (data.ok) {
           mostrarMensaje(
-            data.mensaje + '\n' +
-            'Empleado: ' + data.registro.empleado + '\n' +
-            'Hora: ' + data.registro.fechaHora,
+            `${data.mensaje}\nEmpleado: ${data.registro.empleado}\nHora: ${data.registro.fechaHora}`,
             'ok'
           );
 
+          guardarSupervisorLocal();
           document.getElementById('tipoMarcaje').value = '';
           document.getElementById('codigoQR').value = '';
+          document.getElementById('empleadoSelect').value = '';
           document.getElementById('observaciones').value = '';
           document.getElementById('validacionVisual').checked = false;
           document.getElementById('ubicacionTexto').innerText = 'Ubicación no capturada.';
-          guardarSupervisorLocal();
-          resetEmpleadoVisual();
           latitud = '';
           longitud = '';
+          resetEmpleadoVisual();
+          actualizarModoFormulario();
         } else {
           mostrarMensaje(data.mensaje, 'error');
         }
       } catch (error) {
-        mostrarMensaje('Error al guardar asistencia: ' + error.message, 'error');
+        mostrarMensaje('Error al guardar marcaje: ' + error.message, 'error');
       }
     }
 
     window.onload = function() {
       cargarSupervisores();
+      cargarEmpleados();
+      actualizarModoFormulario();
+
       document.getElementById('supervisorSelect').addEventListener('change', guardarSupervisorLocal);
+      document.getElementById('tipoMarcaje').addEventListener('change', actualizarModoFormulario);
     };
   </script>
 </body>
